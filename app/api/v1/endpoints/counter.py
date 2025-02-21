@@ -33,3 +33,8 @@ async def get_visits(
         return count_response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
+
+# Add a shutdown event handler to clean up the service
+@router.on_event("shutdown")
+async def shutdown_event():
+    await visit_counter_service.cleanup()
