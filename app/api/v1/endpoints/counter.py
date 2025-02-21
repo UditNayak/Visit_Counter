@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
 from ....services.visit_counter import VisitCounterService
-from ....schemas.counter import VisitCount
 
 router = APIRouter()
 
