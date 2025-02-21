@@ -1,9 +1,11 @@
-from typing import Dict
+import asyncio
+from collections import defaultdict
 
 class VisitCounterService:
     def __init__(self):
-        """Initialize the visit counter service with an in-memory dictionary"""
-        self.visit_counts: Dict[str, int] = {}
+        """Initialize the visit counter service with an in-memory defaultdict"""
+        self.visit_counts: defaultdict[str, int] = defaultdict(int)
+        self.lock = asyncio.Lock()
 
     async def increment_visit(self, page_id: str) -> None:
         """
@@ -12,7 +14,8 @@ class VisitCounterService:
         Args:
             page_id: Unique identifier for the page
         """
-        self.visit_counts[page_id] = self.visit_counts.get(page_id, 0) + 1
+        async with self.lock:
+            self.visit_counts[page_id] += 1
 
     async def get_visit_count(self, page_id: str) -> int:
         """
@@ -24,4 +27,5 @@ class VisitCounterService:
         Returns:
             Current visit count
         """
-        return self.visit_counts.get(page_id, 0)
+        async with self.lock:
+            return self.visit_counts[page_id]

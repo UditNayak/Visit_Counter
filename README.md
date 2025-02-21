@@ -18,3 +18,14 @@
  docker compose up --build
  ```
  3. The API will be available at `http://localhost:8000`
+
+ ## Drawbacks
+ Python dictionaries are not thread-safe, and race conditions can occur when multiple requests try to update the count of the same page_id at the same time.
+
+ # Upgraded Task1: DefaultDict and Thread-Safety
+- Use `DefaultDict` instead of a regular dictionary, as it automatically initializes missing keys to 0, making our code cleaner.
+- I am applying locks on both read and write operations. This will make the system thread-safe.
+
+### Drawbacks
+- Since I am applying locks on both read and write operations, the system will be slower.
+- To make the system faster, we need to decide based on our business use case whether to prioritize read or write operations.
