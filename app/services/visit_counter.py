@@ -40,9 +40,9 @@ class VisitCounterService:
                 logger.info("Buffer is empty, returning")
                 return
 
-            # Create a copy of the current buffer and clear it
-            buffer_to_flush = self.write_buffer.copy()
-            self.write_buffer.clear()
+            # Swap the current buffer with an empty one
+            buffer_to_flush = self.write_buffer
+            self.write_buffer = {}
 
             # Update Redis for each page_id
             for page_id, count in buffer_to_flush.items():
