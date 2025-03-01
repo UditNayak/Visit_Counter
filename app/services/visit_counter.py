@@ -1,10 +1,8 @@
-import asyncio
-from datetime import datetime
 import logging
-from typing import Dict
-from app.core.redis_manager import RedisManager
+from typing import Dict, Any
+from ..core.redis_manager import RedisManager
+import asyncio
 
-# Configure logger
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -58,50 +56,34 @@ class VisitCounterService:
             logger.info("Buffer flush completed")
 
 
-    async def increment_visit(self, page_id: str) -> None:
-        """Increment visit count in the write buffer."""
-        async with self.lock:
-            self.write_buffer[page_id] = self.write_buffer.get(page_id, 0) + 1
-
-    async def get_visit_count(self, page_id: str) -> Dict[str, str]:
-        """Get total visit count combining Redis and pending writes."""
-        current_time = datetime.now().timestamp()
-
-        # First check the read cache
-        async with self.lock:
-            # Serve from in-memory cache if valid
-            if page_id in self.read_cache and self.read_cache[page_id]["expiry"] > current_time:
-               cached_count = self.read_cache[page_id]["count"]
-               pending_count = self.write_buffer.get(page_id, 0)
-               return {"visits": cached_count + pending_count, "served_via": "in_memory", "pending_writes": pending_count, "cached_count": cached_count}
+    async def increment_visit(self, page_id: str) -> Dict[str, Any]:
+        """
+        Increment visit count for a page
+        
+        Args:
+            page_id: Unique identifier for the page
             
-        # On cache miss, flush the buffer and get fresh count from Redis
-        logger.info("Cache miss, flushing buffer")
-        await self._flush_buffer()
+        Returns:
+            Dictionary containing visit count and which Redis served the request
+        """
+        value, served_via = await self.redis_manager.increment(f"visits:{page_id}")
+        return {
+            "visits": value,
+            "served_via": served_via
+        }
 
-        # Get the latest count from Redis
-        redis_count = await self.redis_manager.get(page_id)
-
-        # Update the read cache
-        async with self.lock:
-            self.read_cache[page_id] = {"count": redis_count, "expiry": current_time + self.cache_ttl}
-
-            # Add any new pending writes that accumulated during the flush
-            pending_count = self.write_buffer.get(page_id, 0)
-
-            return {"visits": redis_count + pending_count, "served_via": "redis", "pending_writes": pending_count}
+    async def get_visit_count(self, page_id: str) -> Dict[str, Any]:
+        """
+        Get current visit count for a page
         
-    
-    async def cleanup(self) -> None:
-        """Cleanup method to be called when shutting down the service."""
-        # Cancel the periodic flush task
-        logger.info("Cleaning up VisitCounterService")
-        if self.flush_task:
-            self.flush_task.cancel()
-            try:
-                await self.flush_task
-            except asyncio.CancelledError:
-                pass
-        
-        # Flush any remaining writes
-        await self._flush_buffer()
+        Args:
+            page_id: Unique identifier for the page
+            
+        Returns:
+            Dictionary containing visit count and which Redis served the request
+        """
+        value, served_via = await self.redis_manager.get(f"visits:{page_id}")
+        return {
+            "visits": value if value is not None else 0,
+            "served_via": served_via
+        }

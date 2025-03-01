@@ -27,14 +27,12 @@ async def get_visits(
     page_id: str,
     counter_service: VisitCounterService = Depends(get_visit_counter_service)
 ):
-    """Get visit count for a website"""
+    """Get visit count and source for a website"""
     try:
-        count_response = await counter_service.get_visit_count(page_id)
-        return count_response
+        visit_data = await counter_service.get_visit_count(page_id)
+        return {
+            "visits": visit_data["visits"],
+            "served_via": visit_data["served_via"]
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
-
-# Add a shutdown event handler to clean up the service
-@router.on_event("shutdown")
-async def shutdown_event():
-    await visit_counter_service.cleanup()
+        raise HTTPException(status_code=500, detail=str(e))
